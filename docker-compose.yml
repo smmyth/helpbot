@@ -1,0 +1,26 @@
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    # Carrega variáveis do arquivo .env no container
+    env_file:
+      - .env
+    # FLASK_ENV já é carregado do .env, mas pode ser sobrescrito aqui se necessário
+    # As variáveis MONGO_URI, SECRET_KEY, etc., virão do .env
+    depends_on:
+      - mongo
+    volumes:
+      - .:/app  # Monta o código atual no container para desenvolvimento (opcional)
+                # Remova ou ajuste para produção para usar o código da imagem construída
+
+  mongo:
+    image: mongo:5.0
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db # Volume nomeado gerenciado pelo Docker
+    # Não é necessário environment para o mongo aqui, a menos que queira definir usuários/senhas do mongo
+
+volumes:
+  mongo_data: {} # Define o volume nomeado

@@ -1,0 +1,241 @@
+openapi: 3.0.0
+info:
+  title: HelpBot API
+  version: "1.0.0"
+  description: API para o HelpBot, um chatbot de atendimento automatizado.
+servers:
+  - url: http://localhost:5000
+    description: Servidor de Desenvolvimento Local
+
+components:
+  schemas:
+    MessageInput:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          description: O conteúdo da mensagem do usuário.
+          minLength: 1
+          maxLength: 500
+          example: "Qual o horário de funcionamento amanhã?"
+        user_id:
+          type: string
+          description: Um identificador opcional para o usuário.
+          maxLength: 50
+          example: "usr_joao_silva_123"
+
+    MessageOutput:
+      type: object
+      properties:
+        _id:
+          type: string
+          description: ID único da mensagem no banco de dados.
+          example: "60c72b2f9b1e8e001c8e4dbb"
+        content:
+          type: string
+          description: Conteúdo original da mensagem do usuário.
+          example: "Qual o horário de funcionamento amanhã?"
+        user_id:
+          type: string
+          nullable: true
+          description: Identificador do usuário, se fornecido.
+          example: "usr_joao_silva_123"
+        timestamp:
+          type: string
+          format: date-time
+          description: Data e hora UTC em que a mensagem foi recebida.
+          example: "2023-05-15T10:30:00Z"
+        status:
+          type: string
+          description: Status do processamento da mensagem.
+          example: "processed_by_ai" # ou "received", "ai_processing_failed", "ai_disabled"
+        ai_response:
+          type: string
+          nullable: true
+          description: Resposta gerada pela IA, se aplicável.
+          example: "Nosso horário de funcionamento amanhã é das 9h às 18h."
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: "Mensagem de erro descritiva."
+        errors:
+          type: # Pode ser string ou objeto/array dependendo do erro
+            oneOf:
+              - type: string
+              - type: object
+              - type: array
+          nullable: true
+          example: "Detalhe específico do erro ou lista de erros de validação."
+    
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "active"
+        version:
+          type: string
+          example: "1.0.0"
+        message:
+          type: string
+          example: "HelpBot service is healthy."
+
+  responses:
+    NotFound:
+      description: Recurso não encontrado.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: "Message not found."
+    BadRequest:
+      description: Requisição inválida (ex: erro de validação).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: "Validation errors"
+            errors: [{ "loc": ["content"], "msg": "ensure this value has at least 1 character", "type": "value_error.any_str.min_length"}]
+    InternalServerError:
+      description: Erro interno do servidor.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: "An unexpected error occurred."
+            errors: "Detalhe do erro interno."
+
+paths:
+  /api/v1/messages:
+    post:
+      summary: Cria uma nova mensagem
+      tags:
+        - Mensagens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageInput'
+            example:
+              content: "Olá, gostaria de saber sobre meus pedidos."
+              user_id: "cliente_vip_007"
+      responses:
+        '201':
+          description: Mensagem criada com sucesso. Retorna a mensagem completa, incluindo a resposta da IA se gerada.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Message created successfully."
+                  data:
+                    $ref: '#/components/schemas/MessageOutput'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    get:
+      summary: Lista todas as mensagens
+      tags:
+        - Mensagens
+      description: Retorna uma lista das últimas 100 mensagens, ordenadas pela mais recente.
+      responses:
+        '200':
+          description: Uma lista de mensagens.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  count:
+                    type: integer
+                    example: 2
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MessageOutput'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/messages/{message_id}:
+    get:
+      summary: Busca uma mensagem específica
+      tags:
+        - Mensagens
+      parameters:
+        - name: message_id
+          in: path
+          required: true
+          description: ID da mensagem a ser recuperada.
+          schema:
+            type: string
+            example: "60c72b2f9b1e8e001c8e4dbb"
+      responses:
+        '200':
+          description: Detalhes da mensagem solicitada.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/MessageOutput'
+        '400': # Para ID inválido
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /health:
+    get:
+      summary: Verifica a saúde do serviço
+      tags:
+        - Status
+      responses:
+        '200':
+          description: Status da saúde do serviço.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '500': # Se algo muito errado acontecer ao checar a saúde
+          description: Erro ao verificar a saúde.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "error"
+                  message:
+                    type: string
+                    example: "Health check failed."

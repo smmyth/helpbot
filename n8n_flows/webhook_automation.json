@@ -1,0 +1,54 @@
+{
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "helpbot"
+            },
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1
+        },
+        {
+            "parameters": {
+                "functionCode": "const data = items[0].json;\nreturn { message: data.content, user: data.user_id, ai_response: data.ai_response, message_id: data._id, timestamp: data.timestamp };"
+            },
+            "name": "Process Data",
+            "type": "n8n-nodes-base.function",
+            "typeVersion": 1
+        },
+        {
+            "parameters": {
+                "url": "https://api.example.com/crm",
+                "options": {}
+            },
+            "name": "CRM Integration",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 1
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Process Data",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Process Data": {
+            "main": [
+                [
+                    {
+                        "node": "CRM Integration",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}
